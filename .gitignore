@@ -1,3 +1,7 @@
+
+*.meta
+MatcSystem/.vs/MatcSystem/v16/.suo
+MatcSystem/Library/*
 MatcSystem/ProjectSettings/*
 MatcSystem/obj/*
 MatcSystem/Packages/*
