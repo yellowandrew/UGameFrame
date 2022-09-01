@@ -9,30 +9,41 @@ public class UnityGame
     public UnityGame()
     {
         Screen.sleepTimeout = SleepTimeout.NeverSleep;
+        Application.runInBackground = true;
+    }
+    public virtual void Start(MonoBehaviour mono) {
+        monoCoroutine = mono;
     }
     // Update is called once per frame
-    public void Update()
+    public virtual void Update()
     {
         
     }
 
-    public void FixedUpdate()
+    public virtual void FixedUpdate()
     {
-        throw new NotImplementedException();
+       
     }
 
-    public void OnChangeLevelFinish(int level)
+    public virtual void OnChangeLevelFinish(int level)
     {
-        throw new NotImplementedException();
+       
     }
 
-    public void OnApplicationPause(bool pause)
+    public virtual void OnApplicationPause(bool pause)
     {
-        throw new NotImplementedException();
+       
     }
 
-    public void OnApplicationQuit()
+    public virtual void OnApplicationQuit()
     {
-        throw new NotImplementedException();
+       
+    }
+    public void StartCoroutine(IEnumerator routine)
+    {
+        monoCoroutine.StartCoroutine(routine);
     }
 }
+
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
+public class GameAttribute : Attribute { }

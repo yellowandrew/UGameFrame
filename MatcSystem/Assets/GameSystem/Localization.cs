@@ -8,9 +8,11 @@ public class Localization
     TextAsset[] languages;
     Dictionary<string, string> mDictionary = new Dictionary<string, string>();
     string mLanguage;
+    public static void LoadLanguage(string lan = "English") {
 
+    }
 
-    public string localString(string key) {
+    public static string LocalString(string key) {
         return "";
     }
 

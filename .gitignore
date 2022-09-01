@@ -9,3 +9,4 @@ MatcSystem/.vsconfig
 *.log
 *.sln
 *.csproj
+MatcSystem/Temp/*

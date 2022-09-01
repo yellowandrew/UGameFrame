@@ -1,50 +1,68 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using UnityEngine;
 
 public class GameStarter : MonoBehaviour
 {
 	UnityGame game;
 
-	// Use this for initialization
+	
 	void Awake()
 	{
-		useGUILayout = false;
+		//useGUILayout = false;
 		//Debug.Log("Compile Version: " + GolfConfig.Instance.version);
 	}
 
 	void Start()
 	{
 	
-		DontDestroyOnLoad(GameObject.Find("GlobalObject"));
-		
+		DontDestroyOnLoad(this);
+		var gameClasses = Assembly.GetExecutingAssembly().GetTypes().Where(x => x.IsSubclassOf(typeof(UnityGame)));
+		foreach (var g in gameClasses)
+		{
+			var attr = g.GetCustomAttribute(typeof(GameAttribute), false);
+			if (attr != null)
+			{
+				game = Activator.CreateInstance(g, new object[] { }) as UnityGame;
+				break;
+			}
+		}
+		if (game == null)
+		{
+			Debug.Log("No Game Class Define");
+			return;
+		}
+		game?.Start(this);
 	}
 
-	// Update is called once per frame
+	
 	void Update()
 	{
-		game.Update();
+		game?.Update();
 	}
 
 	void FixedUpdate()
 	{
-		game.FixedUpdate();
+		game?.FixedUpdate();
 	}
 
 	void OnLevelWasLoaded(int level)
 	{
-		game.OnChangeLevelFinish(level);
+		game?.OnChangeLevelFinish(level);
 	}
 
 	void OnApplicationQuit()
 	{
 		
-			game.OnApplicationQuit();
+			game?.OnApplicationQuit();
 	}
 
 	 void OnApplicationPause(bool pause)
 	{
 		
-			game.OnApplicationPause(pause);
+			game?.OnApplicationPause(pause);
 	}
 }
