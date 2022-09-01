@@ -1,0 +1,7 @@
+MatcSystem/ProjectSettings/*
+MatcSystem/obj/*
+MatcSystem/Packages/*
+MatcSystem/.vsconfig
+*.log
+*.sln
+*.csproj
