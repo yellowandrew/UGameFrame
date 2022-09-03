@@ -78,6 +78,7 @@
     <Compile Include="Assets\GameSystem\UIView.cs" />
     <Compile Include="Assets\GameSystem\UIViewManager.cs" />
     <Compile Include="Assets\GameSystem\UnityGame.cs" />
+    <Compile Include="Assets\GameSystem\candy\Chain.cs" />
     <Compile Include="Assets\GameSystem\candy\Jewel.cs" />
     <Compile Include="Assets\GameSystem\candy\Level.cs" />
     <Compile Include="Assets\GameSystem\candy\Swap.cs" />

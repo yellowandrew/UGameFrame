@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class Level : MonoBehaviour
@@ -15,15 +16,18 @@ public class Level : MonoBehaviour
     public int swipeFromColumn;
     public int swipeFromRow;
 
-    public int state = 0;
+    public bool canSwipe = true;
+    private List<Swap> possibleSwaps;
     void Start()
     {
         tileTransform = GameObject.Find("tiles").transform;
         jewels = new Jewel[numColumns, numRows];
         tiles = new Tile[numColumns, numRows];
+        possibleSwaps = new List<Swap>();
 
         LoadMap("map_1");
         var js = Shuffle();
+
     }
 
     public void LoadMap(string map)
@@ -45,6 +49,38 @@ public class Level : MonoBehaviour
 
     public List<Jewel> Shuffle()
     {
+        List<Jewel> list;
+
+        int c = 0;
+        do
+        {
+            c++;
+            list = CreateInitialCookies();
+            DetectPossibleSwaps();
+
+        } while (possibleSwaps.Count == 0);
+        Debug.Log("shuffle <" + c + "> time");
+        return list;
+    }
+
+
+    void ReLoad()
+    {
+        for (int row = 0; row < numRows; row++)
+        {
+            for (int col = 0; col < numColumns; col++)
+            {
+                if (jewels[col, row] != null)
+                {
+                    Destroy(jewels[col, row].gameObject);//use pool
+                    jewels[col, row] = null;
+                }
+            }
+        }
+    }
+    List<Jewel> CreateInitialCookies()
+    {
+        ReLoad();
         List<Jewel> list = new List<Jewel>();
         for (int row = 0; row < numRows; row++)
         {
@@ -58,12 +94,8 @@ public class Level : MonoBehaviour
                 {
                     maxRoll++;
                     jType = Random.Range(0, (int)JewelType.COUNT);
-                } while ((col >= 2 &&
-                      jewels[col - 1, row].type == (JewelType)jType &&
-                      jewels[col - 2, row].type == (JewelType)jType)
-                      || (row >= 2 &&
-                        jewels[col, row - 1].type == (JewelType)jType &&
-                        jewels[col, row - 2].type == (JewelType)jType)&&maxRoll<99);
+                    // Debug.Log(maxRoll);
+                } while (hasMathesAt(col, row, (JewelType)jType) && maxRoll < 99);
 
                 GameObject jObj = Instantiate(jewelPrefabs[jType]);
                 Jewel jewel = new Jewel(col, row, (JewelType)jType, jObj, transform);
@@ -78,12 +110,295 @@ public class Level : MonoBehaviour
 
         return list;
     }
+    bool hasMathesAt(int col, int row, JewelType type)
+    {
+        bool b_col = false;
+        bool b_row = false;
+        if (col >= 2)
+        {
+            if (jewels[col - 1, row] != null && jewels[col - 2, row] != null)
+                b_col = jewels[col - 1, row].type == type && jewels[col - 2, row].type == type;
+
+        }
+        if (row >= 2)
+        {
+            if (jewels[col, row - 1] != null && jewels[col, row - 2] != null)
+                b_row = jewels[col, row - 1].type == type && jewels[col, row - 2].type == type;
+        }
+
+        return b_col || b_row;
+    }
 
     public Jewel JewelAt(int col, int row) => jewels[col, row];
     public Tile TileAt(int col, int row) => tiles[col, row];
+    List<Chain> detectHorizontalMatches()
+    {
+        List<Chain> chains = new List<Chain>();
+        for (int row = 0; row < numRows; row++)
+        {
+            var column = 0;
+            while (column < numColumns - 2)
+            {
+                // 3
+                if (jewels[column, row] != null)
+                {
+                    var matchType = jewels[column, row].type;
+                    // 4
+                    if (jewels[column + 1, row]!=null&&jewels[column + 1, row]?.type == matchType &&
+                      jewels[column + 2, row]!=null&&jewels[column + 2, row]?.type == matchType)
+                    {
+                        // 5
+                        var chain = new Chain(ChainType.horizontal);
+                        do
+                        {
+                            chain.Add(jewels[column, row]);
+                            column += 1;
+                        } while (column < numColumns && jewels[column, row]?.type == matchType);
 
 
-    Vector2Int BoradPosition()
+                        chains.Add(chain);
+                        continue;
+                    }
+                }
+                // 6
+                column += 1;
+            }
+        }
+
+        return chains;
+    }
+    List<Chain> detectVerticalMatches()
+    {
+        List<Chain> chains = new List<Chain>();
+        for (int column = 0; column < numColumns ; column++)
+        {
+            var row = 0;
+            while (row < numRows - 2)
+            {
+                // 3
+                if (jewels[column, row] != null)
+                {
+                    var matchType = jewels[column, row].type;
+                    // 4
+                    if (jewels[column, row+1] != null && jewels[column, row + 1]?.type == matchType &&
+                      jewels[column, row + 2] != null && jewels[column , row + 2]?.type == matchType)
+                    {
+                        // 5
+                        var chain = new Chain(ChainType.vertical);
+                        do
+                        {
+                            chain.Add(jewels[column, row]);
+                            row += 1;
+                        } while (row < numRows && jewels[column, row]?.type == matchType);
+
+
+                        chains.Add(chain);
+                        continue;
+                    }
+                }
+                // 6
+                row += 1;
+            }
+        }
+
+        return chains;
+    }
+
+    List<Chain> removeMatches() {
+
+        List<Chain> list = new List<Chain>();
+        var horizontalChains = detectHorizontalMatches();
+        var verticalChains = detectVerticalMatches();
+        foreach (var item in horizontalChains) {
+            list.Add(item);
+        }
+        foreach (var vc in verticalChains)
+        {
+            foreach (var c in list)
+            {
+
+            }
+        }
+       
+        return list;
+    }
+    void deleteJewel(List<Chain> chains)
+    {
+        foreach (var ch in chains)
+        {
+            foreach (var jw in ch.jewels)
+            {
+                Destroy(jewels[jw.column, jw.row].gameObject);
+                jewels[jw.column, jw.row] = null;
+             }
+        }
+    }
+    List<List<Jewel>> fillHoles() {
+        List<List<Jewel>> columns = new List<List<Jewel>>();
+        for (int column = 0; column < numColumns; column++)
+        {
+            List<Jewel> array = new List<Jewel>();
+            for (int row = 0; row < numRows; row++)
+            {
+                if (!tiles[column,row].IsEmpty&&jewels[column, row]==null)
+                {
+                    for (int lookup = row+1; lookup < numRows; lookup++)
+                    {
+                        if (jewels[column,lookup]!=null)
+                        {
+                            Jewel jewel = jewels[column, lookup];
+                            jewels[column, lookup] = null;
+                            jewels[column, row] = jewel;
+                            jewel.row = row;
+                            array.Add(jewel);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (array.Count>0)
+            {
+                columns.Add(array);
+            }
+        }
+
+        return columns;
+    }
+    void animateFallingJewels(List<List<Jewel>> columns) {
+        foreach (var list in columns)
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                var delay = 0.05f + 0.15f * i;
+                AnimationUtil.MoveTo(list[i].gameObject, new Vector3(list[i].column, list[i].row,0), delay);
+            }
+        }
+    }
+    bool HasChainAt(int col, int row)
+    {
+        if (jewels[col, row] != null)
+        {
+            // Left
+            JewelType type = jewels[col, row].type;
+            // Horizontal chain check
+            var horizontalLength = 1;
+            var i = col - 1;
+            while (i >= 0 && jewels[i, row] != null && jewels[i, row]?.type == type)
+            {
+                i -= 1;
+                horizontalLength += 1;
+            }
+            // Right
+            i = col + 1;
+            while (i < numColumns && jewels[i, row] != null && jewels[i, row]?.type == type)
+            {
+                i += 1;
+                horizontalLength += 1;
+            }
+
+            if (horizontalLength >= 3) return true;
+            // Vertical chain check
+            var verticalLength = 1;
+
+            // Down
+            i = row - 1;
+            while (i >= 0 && jewels[col, i] != null && jewels[col, i]?.type == type)
+            {
+                i -= 1;
+                verticalLength += 1;
+            }
+
+            // Up
+            i = row + 1;
+            while (i < numRows && jewels[col, i] != null && jewels[col, i]?.type == type)
+            {
+                i += 1;
+                verticalLength += 1;
+            }
+            return verticalLength >= 3;
+
+        }
+        return false;
+    }
+    void DetectPossibleSwaps()
+    {
+        List<Swap> list = new List<Swap>();
+        for (int row = 0; row < numRows; row++)
+        {
+            for (int col = 0; col < numColumns; col++)
+            {
+                var jewel = jewels[col, row];
+                if (jewel != null)
+                {
+                    if (col < numColumns - 1)
+                    {
+                        var other = jewels[col + 1, row];
+                        if (other != null)
+                        {
+                            // Swap
+                            jewels[col, row] = other;
+                            jewels[col + 1, row] = jewel;
+
+                            if (HasChainAt(col, row) || HasChainAt(col + 1, row))
+                            {
+                                list.Add(new Swap(jewel, other));
+                            }
+                            // Swap  back
+                            jewels[col, row] = jewel;
+                            jewels[col + 1, row] = other;
+                        }
+                    }
+
+                    if (row < numRows - 1)
+                    {
+                        var other = jewels[col, row + 1];
+                        if (other != null)
+                        {
+                            jewels[col, row] = other;
+                            jewels[col, row + 1] = jewel;
+
+                            // Swap
+                            jewels[col, row] = other;
+                            jewels[col, row + 1] = jewel;
+
+                            if (HasChainAt(col, row) || HasChainAt(col, row + 1))
+                            {
+                                list.Add(new Swap(jewel, other));
+                            }
+                            // Swap  back
+                            jewels[col, row] = jewel;
+                            jewels[col, row + 1] = other;
+
+                        }
+
+                    }
+
+                    else if (col == numColumns - 1)
+                    {
+                        if (row < numRows - 1)
+                        {
+                            var other = jewels[col, row + 1];
+                            jewels[col, row] = other;
+                            jewels[col, row + 1] = jewel;
+
+                            if (HasChainAt(col, row) || HasChainAt(col, row + 1))
+                            {
+                                list.Add(new Swap(jewel, other));
+                            }
+
+                            // Swap  back
+                            jewels[col, row] = jewel;
+                            jewels[col, row + 1] = other;
+                        }
+                    }
+                }
+            }
+        }
+
+        possibleSwaps = list;
+    }
+    Vector2Int TouchBoradPosition()
     {
         Vector2 pos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         return new Vector2Int(Mathf.RoundToInt(pos.x), Mathf.RoundToInt(pos.y));
@@ -94,9 +409,10 @@ public class Level : MonoBehaviour
     }
     void Update()
     {
+        if (!canSwipe) return;
         if (Input.GetMouseButtonDown(0))
         {
-            Vector2Int pos = BoradPosition();
+            Vector2Int pos = TouchBoradPosition();
             if (IsInBorad(pos))
             {
                 swipeFromColumn = pos.x;
@@ -106,9 +422,9 @@ public class Level : MonoBehaviour
 
         if (Input.GetMouseButton(0))
         {
-            if (state == 1) return;
-        
-            Vector2Int pos = BoradPosition();
+           
+
+            Vector2Int pos = TouchBoradPosition();
             if (IsInBorad(pos))
             {
 
@@ -117,27 +433,27 @@ public class Level : MonoBehaviour
                 if (pos.x < swipeFromColumn)
                 {          // swipe left
                     horizontalDelta = -1;
-                    Debug.Log("left");
+                    //  Debug.Log("left");
                 }
                 else if (pos.x > swipeFromColumn)
                 {   // swipe right
                     horizontalDelta = 1;
-                    Debug.Log("right");
+                    // Debug.Log("right");
                 }
                 else if (pos.y < swipeFromRow)
                 {         // swipe down
                     verticalDelta = -1;
-                    Debug.Log("down");
+                    /// Debug.Log("down");
                 }
                 else if (pos.y > swipeFromRow)
                 {         // swipe up
                     verticalDelta = 1;
-                    Debug.Log("up");
+                    // Debug.Log("up");
                 }
 
                 if (horizontalDelta != 0 || verticalDelta != 0)
                 {
-                    trySwap(horizontalDelta, verticalDelta);
+                    TrySwap(horizontalDelta, verticalDelta);
                 }
 
             }
@@ -147,25 +463,63 @@ public class Level : MonoBehaviour
         {
             swipeFromColumn = -1;
             swipeFromRow = -1;
-            state = 0;
+          
         }
     }
 
-    void trySwap(int x, int y) {
-        state = 1;
+    bool IsPossibleSwap(Swap swap)
+    {
+
+        var ls = possibleSwaps.Where(s => (s.JewelA == swap.JewelA && s.JewelB == swap.JewelB) ||
+       (s.JewelB == swap.JewelA && s.JewelA == swap.JewelB)).ToList();
+
+        return ls.Count > 0;
+
+    }
+
+    void TrySwap(int x, int y)
+    {
+        canSwipe = false;
         int toCol = swipeFromColumn + x;
         int toRow = swipeFromRow + y;
 
         var toJewel = JewelAt(toCol, toRow);
         var fromJewel = JewelAt(swipeFromColumn, swipeFromRow);
-        if (toJewel!=null && fromJewel!=null)
+        if (toJewel != null && fromJewel != null)
         {
-            HandleSwap(new Swap(fromJewel, toJewel));
+            Swap swap = new Swap(fromJewel, toJewel);
+            if (IsPossibleSwap(swap))
+            {
+                StartCoroutine(AnimaSwap(swap, 0.25f));
+            }
+            else
+            {
+                StartCoroutine(AnimateInvalidSwap(swap, 0.15f));
+            }
         }
     }
+    IEnumerator AnimateInvalidSwap(Swap swap, float t)
+    {
+        
+        var columnA = swap.JewelA.column;
+        var rowA = swap.JewelA.row;
 
-    void HandleSwap(Swap swap) {
-       
+        var columnB = swap.JewelB.column;
+        var rowB = swap.JewelB.row;
+        AnimationUtil.MoveTo(swap.JewelA.gameObject, new Vector3(columnB, rowB, 0), t);
+        AnimationUtil.MoveTo(swap.JewelB.gameObject, new Vector3(columnA, rowA, 0), t);
+        yield return new WaitForSeconds(t);
+        AnimationUtil.MoveTo(swap.JewelA.gameObject, new Vector3(columnA, rowA, 0), t);
+        AnimationUtil.MoveTo(swap.JewelB.gameObject, new Vector3(columnB, rowB, 0), t);
+        yield return new WaitForSeconds(t);
+        canSwipe = true;
+    }
+
+
+    
+    IEnumerator AnimaSwap(Swap swap, float t)
+    {
+        
         var columnA = swap.JewelA.column;
         var rowA = swap.JewelA.row;
 
@@ -179,12 +533,15 @@ public class Level : MonoBehaviour
         jewels[columnB, rowB] = swap.JewelA;
         swap.JewelA.column = columnB;
         swap.JewelA.row = rowB;
-        AnimationUtil.MoveTo(swap.JewelA.gameObject, new Vector3(columnB,rowB,0), 0.25f);
-        AnimationUtil.MoveTo(swap.JewelB.gameObject, new Vector3(columnA, rowA, 0), 0.25f);
-      //  swap.JewelA.UpdatePosition();
-     //   swap.JewelB.UpdatePosition();
-
-      
-        // state = 0;
+        AnimationUtil.MoveTo(swap.JewelA.gameObject, new Vector3(columnB, rowB, 0), t);
+        AnimationUtil.MoveTo(swap.JewelB.gameObject, new Vector3(columnA, rowA, 0), t);
+        yield return new WaitForSeconds(t);
+        Debug.Log("Swap Over");
+        canSwipe = true;
+        var chains = removeMatches();
+        var cols = fillHoles();
+        animateFallingJewels(cols);
     }
+
+
 }
