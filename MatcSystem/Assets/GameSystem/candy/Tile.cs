@@ -9,5 +9,5 @@ public class Tile
         this.id = id;
     }
 
-    public bool IsEmpty => id == 0;
+    public bool IsNull => id == 0;
 }

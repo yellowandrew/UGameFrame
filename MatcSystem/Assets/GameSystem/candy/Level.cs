@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -18,6 +19,9 @@ public class Level : MonoBehaviour
 
     public bool canSwipe = true;
     private List<Swap> possibleSwaps;
+
+    public GameObject noText;
+    
     void Start()
     {
         tileTransform = GameObject.Find("tiles").transform;
@@ -30,6 +34,10 @@ public class Level : MonoBehaviour
 
     }
 
+
+    public void Reload() {
+        Shuffle();
+    }
     public void LoadMap(string map)
     {
         TextAsset ta = Resources.Load<TextAsset>("maps/" + map);
@@ -49,6 +57,7 @@ public class Level : MonoBehaviour
 
     public List<Jewel> Shuffle()
     {
+        noText.SetActive(false);
         List<Jewel> list;
 
         int c = 0;
@@ -86,30 +95,41 @@ public class Level : MonoBehaviour
         {
             for (int col = 0; col < numColumns; col++)
             {
-                if (tiles[col, row].IsEmpty) continue;
+                if (tiles[col, row].IsNull) continue;
 
                 int maxRoll = 0;
                 int jType = 0;
                 do
                 {
                     maxRoll++;
-                    jType = Random.Range(0, (int)JewelType.COUNT);
+                    jType = UnityEngine.Random.Range(0, (int)JewelType.COUNT);
                     // Debug.Log(maxRoll);
                 } while (hasMathesAt(col, row, (JewelType)jType) && maxRoll < 99);
 
-                GameObject jObj = Instantiate(jewelPrefabs[jType]);
-                Jewel jewel = new Jewel(col, row, (JewelType)jType, jObj, transform);
+                // GameObject jObj = Instantiate(jewelPrefabs[jType]);
+                // Jewel jewel = new Jewel(col, row, (JewelType)jType, jObj, transform);
+                // GameObject tGo = Instantiate(tilePrefab);
+                //  tGo.transform.parent = tileTransform;
+                // tGo.transform.localPosition = new Vector2(col, row);
+                Jewel jewel = CreateJewel(col, row, (JewelType)jType);
                 jewels[col, row] = jewel;
                 list.Add(jewel);
-
-                GameObject tGo = Instantiate(tilePrefab);
-                tGo.transform.parent = tileTransform;
-                tGo.transform.localPosition = new Vector2(col, row);
             }
         }
 
         return list;
     }
+
+    Jewel CreateJewel(int col,int row, JewelType type) {
+        GameObject jObj = Instantiate(jewelPrefabs[(int)type]);
+        Jewel jewel = new Jewel(col, row, type, jObj, transform);
+        GameObject tGo = Instantiate(tilePrefab);
+        tGo.transform.parent = tileTransform;
+        tGo.transform.localPosition = new Vector2(col, row);
+
+        return jewel;
+    }
+
     bool hasMathesAt(int col, int row, JewelType type)
     {
         bool b_col = false;
@@ -128,7 +148,6 @@ public class Level : MonoBehaviour
 
         return b_col || b_row;
     }
-
     public Jewel JewelAt(int col, int row) => jewels[col, row];
     public Tile TileAt(int col, int row) => tiles[col, row];
     List<Chain> detectHorizontalMatches()
@@ -204,53 +223,82 @@ public class Level : MonoBehaviour
         return chains;
     }
 
-    List<Chain> removeMatches() {
+    List<Chain> RemoveMatches() {
 
         List<Chain> list = new List<Chain>();
         var horizontalChains = detectHorizontalMatches();
         var verticalChains = detectVerticalMatches();
-        foreach (var item in horizontalChains) {
-            list.Add(item);
-        }
-        foreach (var vc in verticalChains)
-        {
-            foreach (var c in list)
-            {
-
-            }
-        }
-       
+        RemoveJewel(horizontalChains);
+        RemoveJewel(verticalChains);
+        foreach (var item in horizontalChains)   list.Add(item);
+        foreach (var item in verticalChains) list.Add(item);
+  
         return list;
     }
-    void deleteJewel(List<Chain> chains)
+    void RemoveJewel(List<Chain> chains)
     {
         foreach (var ch in chains)
         {
             foreach (var jw in ch.jewels)
             {
-                Destroy(jewels[jw.column, jw.row].gameObject);
-                jewels[jw.column, jw.row] = null;
+                if (jewels[jw.column, jw.row] != null)
+                {
+                    Destroy(jewels[jw.column, jw.row].gameObject);
+                    jewels[jw.column, jw.row] = null;
+                }
+                
              }
         }
     }
-    List<List<Jewel>> fillHoles() {
+    List<List<Jewel>> TopUpJewels() {
+        List<List<Jewel>> columns = new List<List<Jewel>>();
+        JewelType jType= JewelType.COUNT;
+        for (int column = 0; column < numColumns; column++) {
+            List<Jewel> array = new List<Jewel>();
+            var row = numRows - 1;
+            while (row >= 0 && jewels[column, row] == null){
+                if (!tiles[column, row].IsNull) {
+                    JewelType newType;
+                    do
+                    {
+                        newType = (JewelType)UnityEngine.Random.Range(0, (int)JewelType.COUNT);
+                    } while (newType== jType);
+                    jType = newType;
+
+                    Jewel jewel = CreateJewel(column, row, jType);
+                    jewels[column, row] = jewel;
+                    array.Add(jewel);
+
+                }
+                row--;
+            }
+
+            if (array.Count > 0)
+            {
+                columns.Add(array);
+            }
+        }
+
+        return columns;
+    }
+    List<List<Jewel>> FillHoles() {
         List<List<Jewel>> columns = new List<List<Jewel>>();
         for (int column = 0; column < numColumns; column++)
         {
             List<Jewel> array = new List<Jewel>();
             for (int row = 0; row < numRows; row++)
             {
-                if (!tiles[column,row].IsEmpty&&jewels[column, row]==null)
+                if (!tiles[column,row].IsNull&&jewels[column, row]==null)
                 {
                     for (int lookup = row+1; lookup < numRows; lookup++)
                     {
                         if (jewels[column,lookup]!=null)
                         {
                             Jewel jewel = jewels[column, lookup];
-                            jewels[column, lookup] = null;
                             jewels[column, row] = jewel;
                             jewel.row = row;
                             array.Add(jewel);
+                            jewels[column, lookup] = null;
                             break;
                         }
                     }
@@ -265,15 +313,36 @@ public class Level : MonoBehaviour
 
         return columns;
     }
-    void animateFallingJewels(List<List<Jewel>> columns) {
+    IEnumerator AnimateNewJewels(List<List<Jewel>> columns,Action callback=null) {
+        float longDelay = 0.1f;
+        foreach (var list in columns) {
+            var startRow = list[0].row + 1;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var delay = 0.05f + 0.1f * (list.Count - i - 1);
+                longDelay = Mathf.Max(longDelay, delay);
+                var startPos = new Vector3(list[i].column, startRow, 0);
+                var toPos = new Vector3(list[i].column, list[i].row, 0);
+                AnimationUtil.MoveTo(list[i].gameObject, startPos,toPos, delay);
+            }
+        }
+
+         yield return new WaitForSeconds(longDelay);
+        callback?.Invoke();
+    }
+    IEnumerator AnimateFallingJewels(List<List<Jewel>> columns,Action callback= null) {
+        float longDelay = 0.1f;
         foreach (var list in columns)
         {
             for (int i = 0; i < list.Count; i++)
             {
-                var delay = 0.05f + 0.15f * i;
+                var delay = 0.05f + 0.1f * i;
+                longDelay = Mathf.Max(longDelay, delay);
                 AnimationUtil.MoveTo(list[i].gameObject, new Vector3(list[i].column, list[i].row,0), delay);
             }
         }
+        yield return new WaitForSeconds(longDelay);
+        callback?.Invoke();
     }
     bool HasChainAt(int col, int row)
     {
@@ -396,6 +465,11 @@ public class Level : MonoBehaviour
             }
         }
 
+        if (list.Count==0)
+        {
+            Debug.LogError("No More Move!!!!");
+            noText.SetActive(true);
+        }
         possibleSwaps = list;
     }
     Vector2Int TouchBoradPosition()
@@ -409,7 +483,7 @@ public class Level : MonoBehaviour
     }
     void Update()
     {
-        if (!canSwipe) return;
+       
         if (Input.GetMouseButtonDown(0))
         {
             Vector2Int pos = TouchBoradPosition();
@@ -422,7 +496,7 @@ public class Level : MonoBehaviour
 
         if (Input.GetMouseButton(0))
         {
-           
+            if (!canSwipe) return;
 
             Vector2Int pos = TouchBoradPosition();
             if (IsInBorad(pos))
@@ -453,6 +527,7 @@ public class Level : MonoBehaviour
 
                 if (horizontalDelta != 0 || verticalDelta != 0)
                 {
+                  
                     TrySwap(horizontalDelta, verticalDelta);
                 }
 
@@ -463,7 +538,7 @@ public class Level : MonoBehaviour
         {
             swipeFromColumn = -1;
             swipeFromRow = -1;
-          
+            canSwipe = true;
         }
     }
 
@@ -479,6 +554,7 @@ public class Level : MonoBehaviour
 
     void TrySwap(int x, int y)
     {
+       // Debug.Log($"TrySwap<{x},{y}>");
         canSwipe = false;
         int toCol = swipeFromColumn + x;
         int toRow = swipeFromRow + y;
@@ -500,7 +576,7 @@ public class Level : MonoBehaviour
     }
     IEnumerator AnimateInvalidSwap(Swap swap, float t)
     {
-        
+        canSwipe = false;
         var columnA = swap.JewelA.column;
         var rowA = swap.JewelA.row;
 
@@ -512,11 +588,9 @@ public class Level : MonoBehaviour
         AnimationUtil.MoveTo(swap.JewelA.gameObject, new Vector3(columnA, rowA, 0), t);
         AnimationUtil.MoveTo(swap.JewelB.gameObject, new Vector3(columnB, rowB, 0), t);
         yield return new WaitForSeconds(t);
-        canSwipe = true;
+        
     }
 
-
-    
     IEnumerator AnimaSwap(Swap swap, float t)
     {
         
@@ -536,12 +610,27 @@ public class Level : MonoBehaviour
         AnimationUtil.MoveTo(swap.JewelA.gameObject, new Vector3(columnB, rowB, 0), t);
         AnimationUtil.MoveTo(swap.JewelB.gameObject, new Vector3(columnA, rowA, 0), t);
         yield return new WaitForSeconds(t);
-        Debug.Log("Swap Over");
-        canSwipe = true;
-        var chains = removeMatches();
-        var cols = fillHoles();
-        animateFallingJewels(cols);
+        //Debug.Log("Swap Over");
+        
+        HandleMatches();
     }
 
 
+    void HandleMatches() {
+        var chains = RemoveMatches();
+        if (chains.Count==0)
+        {
+            DetectPossibleSwaps();
+            canSwipe = true;
+            return;
+        }
+        var cols = FillHoles();
+        StartCoroutine(AnimateFallingJewels(cols,()=> {
+            cols = TopUpJewels();
+            StartCoroutine(AnimateNewJewels(cols, () => {
+                HandleMatches();
+            }));
+        }));
+        
+    }
 }

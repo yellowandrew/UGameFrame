@@ -34,6 +34,7 @@ public class Jewel
         this.type = t;
         this.gameObject = gameObject;
         this.gameObject.transform.parent = p;
+        gameObject.name = "("+column+","+row+")"+t;
         UpdatePosition();
     }
     public void UpdatePosition() {
